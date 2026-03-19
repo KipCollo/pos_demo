@@ -1,83 +1,88 @@
 package com.kipcollo.demo;
 
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
 public class Customers {
-    private final VBox view;
-//
-//    public Customers() {
-//        view = new VBox(15);
-//        view.setPadding(new Insets(20));
-//
-//        Label title = new Label("Customers");
-//
-//        TextField name = new TextField();
-//        name.setPromptText("Name");
-//
-//        TextField phone = new TextField();
-//        phone.setPromptText("Phone");
-//
-//        Button add = new Button("Add Customer");
-//
-//        view.getChildren().addAll(title, name, phone, add);
-//    }
-//
-//    public VBox getView() {
-//        return view;
-//    }
 
-//    public Customers() {
-//        view = new VBox(15);
-//        view.setPadding(new Insets(20));
-//
-//        Label title = new Label("Customers");
-//
-//        ListView<String> list = new ListView<>();
-//        list.getItems().addAll("John", "Alice", "Bob", "Eve");
-//
-//        view.getChildren().addAll(title, list);
-//    }
-//
-//    public VBox getView() {
-//        return view;
-//    }
+    private final VBox view;
 
     public Customers() {
-        view = new VBox(15);
-        view.setPadding(new Insets(20));
+        view = new VBox(16);
+        view.setPadding(new Insets(24));
+        view.setStyle("-fx-background-color: #ecf0f1;");
 
-        Label title = new Label("Customers");
+        Label header = new Label("👥 Customers");
+        header.setFont(Font.font("Arial", FontWeight.BOLD, 24));
 
-        Button addBtn = new Button("Add Customer");
+        HBox toolbar = new HBox(10);
+        toolbar.setAlignment(Pos.CENTER_LEFT);
 
-        ListView<String> list = new ListView<>();
-        list.getItems().addAll("John", "Alice", "Bob", "Eve");
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍  Search customers...");
+        searchField.setPrefWidth(220);
+        searchField.setStyle("-fx-background-radius: 5; -fx-padding: 8;");
 
-        addBtn.setOnAction(e -> showForm());
+        toolbar.getChildren().add(searchField);
 
-        view.getChildren().addAll(title, addBtn, list);
-    }
+        // Sample customer table
+        TableView<String[]> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+        VBox.setVgrow(table, Priority.ALWAYS);
 
-    private void showForm() {
-        view.getChildren().clear();
+        TableColumn<String[], String> idCol    = new TableColumn<>("#");
+        idCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[0]));
+        idCol.setMaxWidth(50);
 
-        Label title = new Label("Add Customer");
+        TableColumn<String[], String> nameCol  = new TableColumn<>("Name");
+        nameCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[1]));
 
-        TextField name = new TextField();
-        name.setPromptText("Name");
+        TableColumn<String[], String> phoneCol = new TableColumn<>("Phone");
+        phoneCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[2]));
 
-        TextField phone = new TextField();
-        phone.setPromptText("Phone");
+        TableColumn<String[], String> txCol    = new TableColumn<>("Transactions");
+        txCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[3]));
 
-        Button save = new Button("Save");
-        Button back = new Button("Back");
+        TableColumn<String[], String> totalCol = new TableColumn<>("Total Spent (KES)");
+        totalCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[4]));
 
-        back.setOnAction(e -> view.getChildren().setAll(new Customers().getView().getChildren()));
+        table.getColumns().addAll(idCol, nameCol, phoneCol, txCol, totalCol);
 
-        view.getChildren().addAll(title, name, phone, save, back);
+        ObservableList<String[]> data = FXCollections.observableArrayList(
+                new String[]{"1", "John Kamau",    "+254 712 345678", "5", "28,500.00"},
+                new String[]{"2", "Alice Wanjiku",  "+254 722 456789", "3", "14,200.00"},
+                new String[]{"3", "Bob Otieno",     "+254 733 567890", "7", "55,000.00"},
+                new String[]{"4", "Eve Muthoni",    "+254 744 678901", "2", "7,800.00"},
+                new String[]{"5", "Charles Kiprop", "+254 755 789012", "4", "32,100.00"},
+                new String[]{"6", "Faith Achieng",  "+254 766 890123", "1", "4,500.00"},
+                new String[]{"7", "David Njoroge",  "+254 777 901234", "6", "41,750.00"},
+                new String[]{"8", "Grace Chebet",   "+254 788 012345", "2", "9,300.00"}
+        );
+
+        table.setItems(data);
+
+        searchField.textProperty().addListener((obs, o, n) -> {
+            if (n.isBlank()) {
+                table.setItems(data);
+            } else {
+                String lower = n.toLowerCase();
+                ObservableList<String[]> filtered = FXCollections.observableArrayList();
+                data.stream().filter(r -> r[1].toLowerCase().contains(lower) || r[2].contains(lower))
+                        .forEach(filtered::add);
+                table.setItems(filtered);
+            }
+        });
+
+        view.getChildren().addAll(header, toolbar, table);
     }
 
     public VBox getView() { return view; }
 }
+

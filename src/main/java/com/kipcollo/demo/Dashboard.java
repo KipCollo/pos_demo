@@ -1,192 +1,154 @@
 package com.kipcollo.demo;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.chart.*;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+
+import java.util.List;
 
 public class Dashboard {
 
-//    private final VBox view;
-//
-//    public Dashboard() {
-//        view = new VBox(20);
-//        view.setPadding(new Insets(20));
-//
-//        Label header = new Label("Dashboard Analytics");
-//        header.setStyle("-fx-font-size: 22px;");
-//
-//        HBox cards = new HBox(20);
-//        cards.getChildren().addAll(
-//                createCard("Total Sales", "KES 45,000"),
-//                createCard("Products", "120"),
-//                createCard("Customers", "85")
-//        );
-//
-//        LineChart<String, Number> lineChart = createLineChart();
-//        PieChart pieChart = createPieChart();
-//
-//        HBox charts = new HBox(20, lineChart, pieChart);
-//
-//        view.getChildren().addAll(header, cards, charts);
-//    }
-//
-//    public VBox getView() {
-//        return view;
-//    }
-//
-//    private VBox createCard(String title, String value) {
-//        VBox card = new VBox(10);
-//        card.setPadding(new Insets(15));
-//        card.setStyle("-fx-background-color: #ecf0f1; -fx-background-radius: 5;");
-//
-//        Label t = new Label(title);
-//        Label v = new Label(value);
-//        v.setStyle("-fx-font-size: 18px;");
-//
-//        card.getChildren().addAll(t, v);
-//        return card;
-//    }
-//
-//
-//
-//    private PieChart createPieChart() {
-//        PieChart chart = new PieChart();
-//        chart.setTitle("Product Categories");
-//
-//        chart.getData().add(new PieChart.Data("Electronics", 30));
-//        chart.getData().add(new PieChart.Data("Groceries", 40));
-//        chart.getData().add(new PieChart.Data("Clothing", 20));
-//        chart.getData().add(new PieChart.Data("Others", 10));
-//
-//        return chart;
-//    }
-//
-//    private LineChart<String, Number> createLineChart() {
-//        CategoryAxis xAxis = new CategoryAxis();
-//        NumberAxis yAxis = new NumberAxis();
-//
-//        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
-//        chart.setTitle("Weekly Sales Trend");
-//
-//        XYChart.Series<String, Number> series = new XYChart.Series<>();
-//
-//        series.getData().add(new XYChart.Data<>("Mon", 5000));
-//        series.getData().add(new XYChart.Data<>("Tue", 7000));
-//        series.getData().add(new XYChart.Data<>("Wed", 6000));
-//        series.getData().add(new XYChart.Data<>("Thu", 8000));
-//        series.getData().add(new XYChart.Data<>("Fri", 10000));
-//
-//        chart.getData().add(series);
-//        return chart;
-//    }
-//
-//
-//    private TableView<SaleRecord> createRecentSalesTable() {
-//        TableView<SaleRecord> table = new TableView<>();
-//
-//        TableColumn<SaleRecord, String> productCol = new TableColumn<>("Product");
-//        productCol.setCellValueFactory(data -> data.getValue().productProperty());
-//
-//        TableColumn<SaleRecord, String> customerCol = new TableColumn<>("Customer");
-//        customerCol.setCellValueFactory(data -> data.getValue().customerProperty());
-//
-//        TableColumn<SaleRecord, Number> amountCol = new TableColumn<>("Amount");
-//        amountCol.setCellValueFactory(data -> data.getValue().amountProperty());
-//
-//        table.getColumns().addAll(productCol, customerCol, amountCol);
-//
-//        // Dummy data
-//        table.getItems().addAll(
-//                new SaleRecord("Laptop", "John", 50000),
-//                new SaleRecord("Milk", "Alice", 200),
-//                new SaleRecord("Shirt", "Bob", 1500),
-//                new SaleRecord("Phone", "Eve", 30000)
-//        );
-//
-//        return table;
-//    }
-
     private final VBox view;
+    private final User currentUser;
+    private final DatabaseManager db = DatabaseManager.getInstance();
 
-    public Dashboard() {
+    public Dashboard(User currentUser) {
+        this.currentUser = currentUser;
         view = new VBox(20);
-        view.setPadding(new Insets(20));
+        view.setPadding(new Insets(24));
+        view.setStyle("-fx-background-color: #ecf0f1;");
 
-        Label header = new Label("Dashboard Analytics");
-        header.setStyle("-fx-font-size: 22px;");
+        Label header = new Label("📊 Dashboard");
+        header.setFont(Font.font("Arial", FontWeight.BOLD, 24));
 
-        HBox cards = new HBox(20,
-                createCard("Total Sales", "KES 45,000"),
-                createCard("Products", "120"),
-                createCard("Customers", "85")
+        Label welcome = new Label("Welcome back, " + currentUser.getDisplayName() + "!");
+        welcome.setFont(Font.font("Arial", 14));
+        welcome.setTextFill(Color.web("#7f8c8d"));
+
+        HBox cards = buildStatCards();
+
+        ScrollPane scroll = new ScrollPane();
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
+        VBox inner = new VBox(20);
+        inner.getChildren().addAll(
+                new HBox(20, createBarChart(), createPieChart()),
+                buildRecentSalesTable()
         );
+        scroll.setContent(inner);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
 
-        HBox charts = new HBox(20, createLineChart(), createBarChart());
-
-        HBox tables = new HBox(20, createCustomersTable(), createOrdersTable());
-
-        view.getChildren().addAll(header, cards, charts, tables);
+        view.getChildren().addAll(header, welcome, cards, scroll);
     }
 
     public VBox getView() { return view; }
 
-    private VBox createCard(String title, String value) {
-        VBox card = new VBox(10);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: #ecf0f1; -fx-background-radius: 5;");
-        card.getChildren().addAll(new Label(title), new Label(value));
-        return card;
+    private HBox buildStatCards() {
+        double revenue = db.getTotalRevenue();
+        int txCount   = db.getTotalTransactions();
+        int products  = db.getTotalProducts();
+
+        HBox cards = new HBox(20,
+                createCard("💰 Total Revenue", String.format("KES %.2f", revenue), "#27ae60"),
+                createCard("🛒 Total Transactions", String.valueOf(txCount), "#2980b9"),
+                createCard("📦 Total Products", String.valueOf(products), "#8e44ad"),
+                createCard("👤 Logged In As", currentUser.getRole().toUpperCase(), "#e67e22")
+        );
+        cards.setPadding(new Insets(0, 0, 8, 0));
+        return cards;
     }
 
-    private LineChart<String, Number> createLineChart() {
-        CategoryAxis x = new CategoryAxis();
-        NumberAxis y = new NumberAxis();
-        LineChart<String, Number> chart = new LineChart<>(x, y);
-        chart.setTitle("Sales Trend");
+    private VBox createCard(String title, String value, String color) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(16));
+        card.setPrefWidth(200);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; " +
+                "-fx-border-color: " + color + "; -fx-border-width: 0 0 0 4; -fx-border-radius: 0 8 8 0;");
 
-        XYChart.Series<String, Number> s = new XYChart.Series<>();
-        s.getData().add(new XYChart.Data<>("Mon", 5000));
-        s.getData().add(new XYChart.Data<>("Tue", 7000));
-        s.getData().add(new XYChart.Data<>("Wed", 6000));
-        s.getData().add(new XYChart.Data<>("Thu", 8000));
-        s.getData().add(new XYChart.Data<>("Fri", 10000));
+        Label t = new Label(title);
+        t.setFont(Font.font("Arial", 12));
+        t.setTextFill(Color.web("#7f8c8d"));
 
-        chart.getData().add(s);
-        return chart;
+        Label v = new Label(value);
+        v.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        v.setTextFill(Color.web(color));
+
+        card.getChildren().addAll(t, v);
+        return card;
     }
 
     private BarChart<String, Number> createBarChart() {
         CategoryAxis x = new CategoryAxis();
         NumberAxis y = new NumberAxis();
+        x.setLabel("Day");
+        y.setLabel("KES");
         BarChart<String, Number> chart = new BarChart<>(x, y);
-        chart.setTitle("Product Sales");
+        chart.setTitle("Weekly Sales Trend");
+        chart.setPrefWidth(460);
+        chart.setPrefHeight(280);
 
         XYChart.Series<String, Number> s = new XYChart.Series<>();
-        s.getData().add(new XYChart.Data<>("Electronics", 30));
-        s.getData().add(new XYChart.Data<>("Groceries", 50));
-        s.getData().add(new XYChart.Data<>("Clothing", 20));
-
+        s.setName("Sales (KES)");
+        s.getData().add(new XYChart.Data<>("Mon", 12000));
+        s.getData().add(new XYChart.Data<>("Tue", 18500));
+        s.getData().add(new XYChart.Data<>("Wed", 15000));
+        s.getData().add(new XYChart.Data<>("Thu", 22000));
+        s.getData().add(new XYChart.Data<>("Fri", 30000));
+        s.getData().add(new XYChart.Data<>("Sat", 25000));
         chart.getData().add(s);
         return chart;
-
     }
 
-    private TableView<String> createCustomersTable() {
-        TableView<String> table = new TableView<>();
-        table.setPlaceholder(new Label("Customers"));
-        table.getItems().addAll("John", "Alice", "Bob");
-        return table;
+    private PieChart createPieChart() {
+        PieChart chart = new PieChart();
+        chart.setTitle("Sales by Category");
+        chart.setPrefWidth(420);
+        chart.setPrefHeight(280);
+        chart.getData().addAll(
+                new PieChart.Data("Furniture", 22),
+                new PieChart.Data("Construction Tools", 28),
+                new PieChart.Data("Hardware Supplies", 18),
+                new PieChart.Data("Electrical", 20),
+                new PieChart.Data("Plumbing", 12)
+        );
+        return chart;
     }
 
-    private TableView<String> createOrdersTable() {
-        TableView<String> table = new TableView<>();
-        table.setPlaceholder(new Label("Orders"));
-        table.getItems().addAll("Order1", "Order2", "Order3");
-        return table;
+    private VBox buildRecentSalesTable() {
+        VBox box = new VBox(8);
+        Label title = new Label("Recent Transactions");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+
+        TableView<SaleRecord> table = new TableView<>();
+        table.setPrefHeight(200);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+
+        TableColumn<SaleRecord, String> dateCol = new TableColumn<>("Date/Time");
+        dateCol.setCellValueFactory(d -> d.getValue().productProperty());
+
+        TableColumn<SaleRecord, String> cashierCol = new TableColumn<>("Cashier");
+        cashierCol.setCellValueFactory(d -> d.getValue().customerProperty());
+
+        TableColumn<SaleRecord, Number> amtCol = new TableColumn<>("Amount (KES)");
+        amtCol.setCellValueFactory(d -> d.getValue().amountProperty());
+
+        table.getColumns().addAll(dateCol, cashierCol, amtCol);
+
+        List<SaleRecord> records = db.getRecentTransactions(10);
+        table.getItems().addAll(records);
+        if (records.isEmpty()) {
+            table.setPlaceholder(new Label("No transactions yet"));
+        }
+
+        box.getChildren().addAll(title, table);
+        return box;
     }
 }
+
 
