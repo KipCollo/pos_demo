@@ -319,11 +319,12 @@ public class Sales {
         methodLabel.setTextFill(Color.web("#bdc3c7"));
 
         ComboBox<String> methodBox = new ComboBox<>(FXCollections.observableArrayList(
-                "Cash", "M-Pesa (Coming Soon)", "Card (Coming Soon)", "Credit (Coming Soon)"));
+                "Cash", "M-Pesa", "Card", "Credit"));
         methodBox.setValue("Cash");
         methodBox.setMaxWidth(Double.MAX_VALUE);
         methodBox.setStyle("-fx-background-radius: 5;");
 
+        // Cash-only fields
         Label paidLabel = new Label("Amount Paid (KES):");
         paidLabel.setTextFill(Color.web("#bdc3c7"));
 
@@ -335,6 +336,22 @@ public class Sales {
         changeLbl.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         changeLbl.setTextFill(Color.web("#2ecc71"));
 
+        // Reference field for M-Pesa / Card
+        Label refLabel = new Label("Reference / Transaction No.:");
+        refLabel.setTextFill(Color.web("#bdc3c7"));
+
+        TextField refField = new TextField();
+        refField.setPromptText("Enter reference number");
+        refField.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+
+        // Credit note field
+        Label noteLabel = new Label("Customer / Credit Note:");
+        noteLabel.setTextFill(Color.web("#bdc3c7"));
+
+        TextField noteField = new TextField();
+        noteField.setPromptText("Enter customer name or note");
+        noteField.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+
         paidField.textProperty().addListener((obs, o, n) -> {
             try {
                 double paid   = Double.parseDouble(n);
@@ -345,6 +362,26 @@ public class Sales {
                 changeLbl.setText("Change: KES 0.00");
             }
         });
+
+        // Show/hide fields based on selected payment method
+        Runnable updateFields = () -> {
+            String m = methodBox.getValue();
+            boolean isCash   = "Cash".equals(m);
+            boolean isRef    = "M-Pesa".equals(m) || "Card".equals(m);
+            boolean isCredit = "Credit".equals(m);
+
+            paidLabel.setVisible(isCash);   paidLabel.setManaged(isCash);
+            paidField.setVisible(isCash);   paidField.setManaged(isCash);
+            changeLbl.setVisible(isCash);   changeLbl.setManaged(isCash);
+
+            refLabel.setVisible(isRef);     refLabel.setManaged(isRef);
+            refField.setVisible(isRef);     refField.setManaged(isRef);
+
+            noteLabel.setVisible(isCredit); noteLabel.setManaged(isCredit);
+            noteField.setVisible(isCredit); noteField.setManaged(isCredit);
+        };
+        methodBox.valueProperty().addListener((obs, o, n) -> updateFields.run());
+        updateFields.run();
 
         Label errorLbl = new Label();
         errorLbl.setTextFill(Color.web("#e74c3c"));
@@ -360,33 +397,41 @@ public class Sales {
 
         payBtn.setOnAction(e -> {
             String method = methodBox.getValue();
-            if (method.contains("Coming Soon")) {
-                errorLbl.setText("This payment method is not yet available.");
-                return;
-            }
             double paid;
-            try {
-                paid = Double.parseDouble(paidField.getText().trim());
-            } catch (NumberFormatException ex) {
-                errorLbl.setText("Please enter a valid amount.");
-                return;
+            double change;
+
+            if ("Cash".equals(method)) {
+                try {
+                    paid = Double.parseDouble(paidField.getText().trim());
+                } catch (NumberFormatException ex) {
+                    errorLbl.setText("Please enter a valid amount.");
+                    return;
+                }
+                if (paid < total) {
+                    errorLbl.setText("Insufficient amount paid.");
+                    return;
+                }
+                change = paid - total;
+            } else {
+                // For M-Pesa, Card and Credit the tendered amount equals the total
+                paid   = total;
+                change = 0.0;
             }
-            if (paid < total) {
-                errorLbl.setText("Insufficient amount paid.");
-                return;
-            }
-            double change = paid - total;
+
             long txId = db.saveTransaction(currentUser.getUsername(), total, paid, change,
-                    cartItems.stream().toList());
+                    method, cartItems.stream().toList());
             dialog.close();
-            showReceipt(txId, total, paid, change);
+            showReceipt(txId, total, paid, change, method);
             cartItems.clear();
             refreshTotal();
             loadCatalog(); // refresh stock display
         });
 
         root.getChildren().addAll(title, totalLbl, methodLabel, methodBox,
-                paidLabel, paidField, changeLbl, errorLbl, payBtn, cancelBtn);
+                paidLabel, paidField, changeLbl,
+                refLabel, refField,
+                noteLabel, noteField,
+                errorLbl, payBtn, cancelBtn);
 
         dialog.setScene(new Scene(root));
         dialog.showAndWait();
@@ -394,7 +439,7 @@ public class Sales {
 
     // ── Receipt ───────────────────────────────────────────────────────────────
 
-    private void showReceipt(long txId, double total, double paid, double change) {
+    private void showReceipt(long txId, double total, double paid, double change, String paymentMethod) {
         // Take a snapshot of cartItems before they are cleared
         ObservableList<CartItem> snapshot = FXCollections.observableArrayList(cartItems);
 
@@ -452,8 +497,7 @@ public class Sales {
         tValue.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         totalRow.getChildren().addAll(tLabel, sp3, tValue);
 
-        HBox paidRow   = makeReceiptRow("Amount Paid:", String.format("KES %.2f", paid));
-        HBox changeRow = makeReceiptRow("Change Due:",  String.format("KES %.2f", change));
+        HBox methodRow = makeReceiptRow("Payment:", paymentMethod);
 
         Separator sep4 = new Separator();
         Label thanks = new Label("Thank you for your purchase!");
@@ -463,7 +507,15 @@ public class Sales {
         thanks.setMaxWidth(Double.MAX_VALUE);
 
         receiptContent.getChildren().addAll(shopName, subtitle, sep1, txLabel, cashierLabel,
-                sep2, itemsBox, sep3, totalRow, paidRow, changeRow, sep4, thanks);
+                sep2, itemsBox, sep3, totalRow, methodRow);
+
+        if ("Cash".equals(paymentMethod)) {
+            receiptContent.getChildren().addAll(
+                    makeReceiptRow("Amount Paid:", String.format("KES %.2f", paid)),
+                    makeReceiptRow("Change Due:",  String.format("KES %.2f", change)));
+        }
+
+        receiptContent.getChildren().addAll(sep4, thanks);
 
         // ── Action buttons ─────────────────────────────────────────────────
         Button printBtn = new Button("🖨 Print Receipt");
