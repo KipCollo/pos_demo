@@ -4,6 +4,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.print.PrinterJob;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -394,14 +395,18 @@ public class Sales {
     // ── Receipt ───────────────────────────────────────────────────────────────
 
     private void showReceipt(long txId, double total, double paid, double change) {
+        // Take a snapshot of cartItems before they are cleared
+        ObservableList<CartItem> snapshot = FXCollections.observableArrayList(cartItems);
+
         Stage receipt = new Stage();
         receipt.initModality(Modality.APPLICATION_MODAL);
         receipt.setTitle("Receipt #" + txId);
 
-        VBox root = new VBox(8);
-        root.setPadding(new Insets(24));
-        root.setStyle("-fx-background-color: white;");
-        root.setPrefWidth(360);
+        // ── Printable receipt content ──────────────────────────────────────
+        VBox receiptContent = new VBox(8);
+        receiptContent.setPadding(new Insets(24));
+        receiptContent.setStyle("-fx-background-color: white;");
+        receiptContent.setPrefWidth(360);
 
         Label shopName = new Label("🔧 HardwareHub POS");
         shopName.setFont(Font.font("Arial", FontWeight.BOLD, 18));
@@ -424,7 +429,7 @@ public class Sales {
         Separator sep2 = new Separator();
 
         VBox itemsBox = new VBox(4);
-        for (CartItem ci : cartItems) {
+        for (CartItem ci : snapshot) {
             HBox row = new HBox();
             Label iName = new Label(ci.getName() + " x" + ci.getQuantity());
             iName.setFont(Font.font("Arial", 12));
@@ -436,29 +441,18 @@ public class Sales {
             itemsBox.getChildren().add(row);
         }
 
-        // Re-use snapshot of cartItems before clear
-        ObservableList<CartItem> snapshot = FXCollections.observableArrayList(cartItems);
-        itemsBox.getChildren().clear();
-        for (CartItem ci : snapshot) {
-            HBox row = new HBox();
-            Label iName = new Label(ci.getName() + " x" + ci.getQuantity());
-            Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-            Label iPrice = new Label(String.format("KES %.2f", ci.getSubtotal()));
-            row.getChildren().addAll(iName, sp, iPrice);
-            itemsBox.getChildren().add(row);
-        }
-
         Separator sep3 = new Separator();
 
         HBox totalRow = new HBox();
         Label tLabel = new Label("TOTAL");
         tLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        Region sp3 = new Region(); HBox.setHgrow(sp3, Priority.ALWAYS);
+        Region sp3 = new Region();
+        HBox.setHgrow(sp3, Priority.ALWAYS);
         Label tValue = new Label(String.format("KES %.2f", total));
         tValue.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         totalRow.getChildren().addAll(tLabel, sp3, tValue);
 
-        HBox paidRow  = makeReceiptRow("Amount Paid:", String.format("KES %.2f", paid));
+        HBox paidRow   = makeReceiptRow("Amount Paid:", String.format("KES %.2f", paid));
         HBox changeRow = makeReceiptRow("Change Due:",  String.format("KES %.2f", change));
 
         Separator sep4 = new Separator();
@@ -468,16 +462,48 @@ public class Sales {
         thanks.setAlignment(Pos.CENTER);
         thanks.setMaxWidth(Double.MAX_VALUE);
 
+        receiptContent.getChildren().addAll(shopName, subtitle, sep1, txLabel, cashierLabel,
+                sep2, itemsBox, sep3, totalRow, paidRow, changeRow, sep4, thanks);
+
+        // ── Action buttons ─────────────────────────────────────────────────
+        Button printBtn = new Button("🖨 Print Receipt");
+        printBtn.setMaxWidth(Double.MAX_VALUE);
+        printBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+        printBtn.setOnAction(e -> printReceipt(receiptContent, receipt));
+
         Button closeBtn = new Button("Close");
         closeBtn.setMaxWidth(Double.MAX_VALUE);
         closeBtn.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
         closeBtn.setOnAction(e -> receipt.close());
 
-        root.getChildren().addAll(shopName, subtitle, sep1, txLabel, cashierLabel,
-                sep2, itemsBox, sep3, totalRow, paidRow, changeRow, sep4, thanks, closeBtn);
+        HBox btnRow = new HBox(8, printBtn, closeBtn);
+        btnRow.setPadding(new Insets(8, 0, 0, 0));
+        HBox.setHgrow(printBtn, Priority.ALWAYS);
+        HBox.setHgrow(closeBtn, Priority.ALWAYS);
+
+        VBox root = new VBox(8, receiptContent, btnRow);
+        root.setStyle("-fx-background-color: white;");
+        root.setPadding(new Insets(0, 24, 24, 24));
 
         receipt.setScene(new Scene(root));
         receipt.showAndWait();
+    }
+
+    private void printReceipt(VBox receiptContent, Stage owner) {
+        PrinterJob job = PrinterJob.createPrinterJob();
+        if (job == null) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "No printer found. Please connect a printer and try again.",
+                    ButtonType.OK);
+            alert.initOwner(owner);
+            alert.showAndWait();
+            return;
+        }
+        boolean proceed = job.showPrintDialog(owner);
+        if (proceed) {
+            job.printPage(receiptContent);
+            job.endJob();
+        }
     }
 
     private HBox makeReceiptRow(String label, String value) {
