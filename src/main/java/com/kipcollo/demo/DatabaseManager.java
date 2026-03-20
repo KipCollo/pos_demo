@@ -55,14 +55,22 @@ public class DatabaseManager {
 
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS transactions (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cashier     TEXT NOT NULL,
-                    total       REAL NOT NULL,
-                    paid        REAL NOT NULL,
-                    change_due  REAL NOT NULL,
-                    created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cashier         TEXT NOT NULL,
+                    total           REAL NOT NULL,
+                    paid            REAL NOT NULL,
+                    change_due      REAL NOT NULL,
+                    payment_method  TEXT NOT NULL DEFAULT 'Cash',
+                    created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime'))
                 )
                 """);
+
+            // Migrate existing databases that lack the payment_method column
+            try {
+                stmt.execute("ALTER TABLE transactions ADD COLUMN payment_method TEXT DEFAULT 'Cash'");
+            } catch (SQLException ignored) {
+                // Column already exists — safe to ignore
+            }
 
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS transaction_items (
@@ -171,11 +179,11 @@ public class DatabaseManager {
 
     private void seedTransactions(Connection conn) throws SQLException {
         long[] txIds = {
-            insertTransaction(conn, "cashier1", 5700.00,  6000.00,  300.00),
-            insertTransaction(conn, "cashier2", 22350.00, 25000.00, 2650.00),
-            insertTransaction(conn, "admin",    1300.00,  1500.00,  200.00),
-            insertTransaction(conn, "cashier1", 8000.00,  8000.00,  0.00),
-            insertTransaction(conn, "cashier2", 3620.00,  4000.00,  380.00)
+            insertTransaction(conn, "cashier1", 5700.00,  6000.00,  300.00,  "Cash"),
+            insertTransaction(conn, "cashier2", 22350.00, 25000.00, 2650.00, "M-Pesa"),
+            insertTransaction(conn, "admin",    1300.00,  1500.00,  200.00,  "Cash"),
+            insertTransaction(conn, "cashier1", 8000.00,  8000.00,  0.00,    "Card"),
+            insertTransaction(conn, "cashier2", 3620.00,  4000.00,  380.00,  "Cash")
         };
 
         insertTransactionItem(conn, txIds[0], 1, "Wooden Chair", 1, 4500.00);
@@ -201,13 +209,14 @@ public class DatabaseManager {
     }
 
     private long insertTransaction(Connection conn, String cashier, double total,
-                                   double paid, double changeDue) throws SQLException {
-        String sql = "INSERT INTO transactions (cashier, total, paid, change_due) VALUES (?,?,?,?)";
+                                   double paid, double changeDue, String paymentMethod) throws SQLException {
+        String sql = "INSERT INTO transactions (cashier, total, paid, change_due, payment_method) VALUES (?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, cashier);
             ps.setDouble(2, total);
             ps.setDouble(3, paid);
             ps.setDouble(4, changeDue);
+            ps.setString(5, paymentMethod);
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 return rs.getLong(1);
@@ -384,11 +393,11 @@ public class DatabaseManager {
     // ── Transaction Operations ────────────────────────────────────────────────
 
     public long saveTransaction(String cashier, double total, double paid,
-                                double changeDue, List<CartItem> items) {
+                                double changeDue, String paymentMethod, List<CartItem> items) {
         try (Connection conn = getConnection()) {
             conn.setAutoCommit(false);
             try {
-                long txId = insertTransaction(conn, cashier, total, paid, changeDue);
+                long txId = insertTransaction(conn, cashier, total, paid, changeDue, paymentMethod);
                 for (CartItem item : items) {
                     insertTransactionItem(conn, txId, item.getProduct().getId(),
                             item.getName(), item.getQuantity(), item.getUnitPrice());
