@@ -297,73 +297,156 @@ public class Sales {
         }
 
         double total = cartItems.stream().mapToDouble(CartItem::getSubtotal).sum();
+        int itemCount = cartItems.stream().mapToInt(CartItem::getQuantity).sum();
 
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
-        dialog.setTitle("Payment");
+        dialog.setTitle("Complete Payment");
 
-        VBox root = new VBox(14);
-        root.setPadding(new Insets(24));
-        root.setStyle("-fx-background-color: #2c3e50;");
-        root.setPrefWidth(380);
+        // ── Outer wrapper (dark gradient background) ──────────────────────
+        VBox outer = new VBox();
+        outer.setStyle("-fx-background-color: linear-gradient(to bottom, #1a252f, #2c3e50);");
+        outer.setPadding(new Insets(24));
+        outer.setSpacing(16);
+        outer.setPrefWidth(420);
 
-        Label title = new Label("💳 Payment");
-        title.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        title.setTextFill(Color.WHITE);
+        // ── Header ────────────────────────────────────────────────────────
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        Label titleIcon = new Label("💳");
+        titleIcon.setFont(Font.font("Arial", 26));
+        Label titleTxt = new Label("Complete Payment");
+        titleTxt.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+        titleTxt.setTextFill(Color.WHITE);
+        header.getChildren().addAll(titleIcon, titleTxt);
 
-        Label totalLbl = new Label(String.format("Amount Due: KES %.2f", total));
-        totalLbl.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-        totalLbl.setTextFill(Color.web("#e67e22"));
+        // ── Order summary card ────────────────────────────────────────────
+        VBox summaryCard = new VBox(8);
+        summaryCard.setPadding(new Insets(16));
+        summaryCard.setStyle(
+                "-fx-background-color: #34495e; -fx-background-radius: 10; " +
+                "-fx-border-color: #4a6278; -fx-border-radius: 10; -fx-border-width: 1;");
 
-        Label methodLabel = new Label("Payment Method:");
+        Label summaryTitle = new Label("Order Summary");
+        summaryTitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        summaryTitle.setTextFill(Color.web("#bdc3c7"));
+
+        HBox itemsRow = new HBox();
+        Label itemsKey = new Label(String.format("%d item%s", itemCount, itemCount == 1 ? "" : "s"));
+        itemsKey.setTextFill(Color.web("#ecf0f1"));
+        itemsKey.setFont(Font.font("Arial", 13));
+        Region spacer1 = new Region();
+        HBox.setHgrow(spacer1, Priority.ALWAYS);
+        Label itemsVal = new Label(String.format("KES %.2f", total));
+        itemsVal.setFont(Font.font("Arial", 13));
+        itemsVal.setTextFill(Color.web("#ecf0f1"));
+        itemsRow.getChildren().addAll(itemsKey, spacer1, itemsVal);
+
+        Separator sumSep = new Separator();
+        sumSep.setStyle("-fx-background-color: #4a6278;");
+
+        HBox totalRow = new HBox();
+        Label totalKey = new Label("TOTAL DUE");
+        totalKey.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        totalKey.setTextFill(Color.WHITE);
+        Region spacer2 = new Region();
+        HBox.setHgrow(spacer2, Priority.ALWAYS);
+        Label totalVal = new Label(String.format("KES %.2f", total));
+        totalVal.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+        totalVal.setTextFill(Color.web("#f39c12"));
+        totalRow.getChildren().addAll(totalKey, spacer2, totalVal);
+
+        summaryCard.getChildren().addAll(summaryTitle, itemsRow, sumSep, totalRow);
+
+        // ── Payment details card ──────────────────────────────────────────
+        VBox payCard = new VBox(12);
+        payCard.setPadding(new Insets(16));
+        payCard.setStyle(
+                "-fx-background-color: #34495e; -fx-background-radius: 10; " +
+                "-fx-border-color: #4a6278; -fx-border-radius: 10; -fx-border-width: 1;");
+
+        Label payCardTitle = new Label("Payment Details");
+        payCardTitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        payCardTitle.setTextFill(Color.web("#bdc3c7"));
+
+        Label methodLabel = new Label("Payment Method");
         methodLabel.setTextFill(Color.web("#bdc3c7"));
+        methodLabel.setFont(Font.font("Arial", 12));
 
         ComboBox<String> methodBox = new ComboBox<>(FXCollections.observableArrayList(
                 "Cash", "M-Pesa", "Card", "Credit"));
         methodBox.setValue("Cash");
         methodBox.setMaxWidth(Double.MAX_VALUE);
-        methodBox.setStyle("-fx-background-radius: 5;");
+        methodBox.setStyle(
+                "-fx-background-radius: 6; -fx-font-size: 13; " +
+                "-fx-background-color: #2c3e50; -fx-text-fill: white;");
 
-        // Cash-only fields
-        Label paidLabel = new Label("Amount Paid (KES):");
+        // ── Cash-only fields ──
+        Label paidLabel = new Label("Amount Paid (KES)");
         paidLabel.setTextFill(Color.web("#bdc3c7"));
+        paidLabel.setFont(Font.font("Arial", 12));
 
         TextField paidField = new TextField();
-        paidField.setPromptText("Enter amount paid");
-        paidField.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+        paidField.setPromptText("0.00");
+        paidField.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        paidField.setStyle(
+                "-fx-background-color: #2c3e50; -fx-text-fill: white; " +
+                "-fx-prompt-text-fill: #7f8c8d; -fx-background-radius: 6; " +
+                "-fx-padding: 10 12;");
 
-        Label changeLbl = new Label("Change: KES 0.00");
-        changeLbl.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        HBox changeRow = new HBox(8);
+        changeRow.setAlignment(Pos.CENTER_LEFT);
+        changeRow.setPadding(new Insets(6, 12, 6, 12));
+        changeRow.setStyle("-fx-background-color: #2c3e50; -fx-background-radius: 6;");
+        Label changeKey = new Label("Change:");
+        changeKey.setTextFill(Color.web("#bdc3c7"));
+        changeKey.setFont(Font.font("Arial", 13));
+        Label changeLbl = new Label("KES 0.00");
+        changeLbl.setFont(Font.font("Arial", FontWeight.BOLD, 15));
         changeLbl.setTextFill(Color.web("#2ecc71"));
+        changeRow.getChildren().addAll(changeKey, changeLbl);
 
-        // Reference field for M-Pesa / Card
-        Label refLabel = new Label("Reference / Transaction No.:");
+        // ── M-Pesa / Card reference ──
+        Label refLabel = new Label("Reference / Transaction No.");
         refLabel.setTextFill(Color.web("#bdc3c7"));
+        refLabel.setFont(Font.font("Arial", 12));
 
         TextField refField = new TextField();
         refField.setPromptText("Enter reference number");
-        refField.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+        refField.setStyle(
+                "-fx-background-color: #2c3e50; -fx-text-fill: white; " +
+                "-fx-prompt-text-fill: #7f8c8d; -fx-background-radius: 6; -fx-padding: 10 12;");
 
-        // Credit note field
-        Label noteLabel = new Label("Customer / Credit Note:");
+        // ── Credit note ──
+        Label noteLabel = new Label("Customer / Credit Note");
         noteLabel.setTextFill(Color.web("#bdc3c7"));
+        noteLabel.setFont(Font.font("Arial", 12));
 
         TextField noteField = new TextField();
         noteField.setPromptText("Enter customer name or note");
-        noteField.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+        noteField.setStyle(
+                "-fx-background-color: #2c3e50; -fx-text-fill: white; " +
+                "-fx-prompt-text-fill: #7f8c8d; -fx-background-radius: 6; -fx-padding: 10 12;");
 
+        payCard.getChildren().addAll(payCardTitle, methodLabel, methodBox,
+                paidLabel, paidField, changeRow,
+                refLabel, refField,
+                noteLabel, noteField);
+
+        // ── Live change calculation ───────────────────────────────────────
         paidField.textProperty().addListener((obs, o, n) -> {
             try {
                 double paid   = Double.parseDouble(n);
                 double change = paid - total;
-                changeLbl.setText(String.format("Change: KES %.2f", Math.max(0, change)));
+                changeLbl.setText(String.format("KES %.2f", Math.max(0, change)));
                 changeLbl.setTextFill(change >= 0 ? Color.web("#2ecc71") : Color.web("#e74c3c"));
             } catch (NumberFormatException ignored) {
-                changeLbl.setText("Change: KES 0.00");
+                changeLbl.setText("KES 0.00");
+                changeLbl.setTextFill(Color.web("#2ecc71"));
             }
         });
 
-        // Show/hide fields based on selected payment method
+        // ── Show/hide fields by payment method ───────────────────────────
         Runnable updateFields = () -> {
             String m = methodBox.getValue();
             boolean isCash   = "Cash".equals(m);
@@ -372,7 +455,7 @@ public class Sales {
 
             paidLabel.setVisible(isCash);   paidLabel.setManaged(isCash);
             paidField.setVisible(isCash);   paidField.setManaged(isCash);
-            changeLbl.setVisible(isCash);   changeLbl.setManaged(isCash);
+            changeRow.setVisible(isCash);   changeRow.setManaged(isCash);
 
             refLabel.setVisible(isRef);     refLabel.setManaged(isRef);
             refField.setVisible(isRef);     refField.setManaged(isRef);
@@ -383,16 +466,41 @@ public class Sales {
         methodBox.valueProperty().addListener((obs, o, n) -> updateFields.run());
         updateFields.run();
 
+        // ── Error label ───────────────────────────────────────────────────
         Label errorLbl = new Label();
         errorLbl.setTextFill(Color.web("#e74c3c"));
+        errorLbl.setFont(Font.font("Arial", 12));
+        errorLbl.setWrapText(true);
 
-        Button payBtn = new Button("✔ Complete Sale");
+        // ── Action buttons ────────────────────────────────────────────────
+        Button payBtn = new Button("✔  Complete Sale");
         payBtn.setMaxWidth(Double.MAX_VALUE);
-        payBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5; -fx-padding: 12;");
+        payBtn.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        payBtn.setStyle(
+                "-fx-background-color: #27ae60; -fx-text-fill: white; " +
+                "-fx-background-radius: 8; -fx-padding: 13 0;");
+        payBtn.setOnMouseEntered(e -> payBtn.setStyle(
+                "-fx-background-color: #2ecc71; -fx-text-fill: white; " +
+                "-fx-background-radius: 8; -fx-padding: 13 0;"));
+        payBtn.setOnMouseExited(e -> payBtn.setStyle(
+                "-fx-background-color: #27ae60; -fx-text-fill: white; " +
+                "-fx-background-radius: 8; -fx-padding: 13 0;"));
 
-        Button cancelBtn = new Button("Cancel");
+        Button cancelBtn = new Button("✖  Cancel");
         cancelBtn.setMaxWidth(Double.MAX_VALUE);
-        cancelBtn.setStyle("-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-background-radius: 5; -fx-padding: 10;");
+        cancelBtn.setFont(Font.font("Arial", 13));
+        cancelBtn.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: #bdc3c7; " +
+                "-fx-border-color: #4a6278; -fx-border-radius: 8; " +
+                "-fx-background-radius: 8; -fx-padding: 10 0;");
+        cancelBtn.setOnMouseEntered(e -> cancelBtn.setStyle(
+                "-fx-background-color: #4a6278; -fx-text-fill: white; " +
+                "-fx-border-color: #4a6278; -fx-border-radius: 8; " +
+                "-fx-background-radius: 8; -fx-padding: 10 0;"));
+        cancelBtn.setOnMouseExited(e -> cancelBtn.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: #bdc3c7; " +
+                "-fx-border-color: #4a6278; -fx-border-radius: 8; " +
+                "-fx-background-radius: 8; -fx-padding: 10 0;"));
         cancelBtn.setOnAction(e -> dialog.close());
 
         payBtn.setOnAction(e -> {
@@ -404,11 +512,11 @@ public class Sales {
                 try {
                     paid = Double.parseDouble(paidField.getText().trim());
                 } catch (NumberFormatException ex) {
-                    errorLbl.setText("Please enter a valid amount.");
+                    errorLbl.setText("⚠ Please enter a valid amount.");
                     return;
                 }
                 if (paid < total) {
-                    errorLbl.setText("Insufficient amount paid.");
+                    errorLbl.setText("⚠ Insufficient amount paid.");
                     return;
                 }
                 change = paid - total;
@@ -427,13 +535,9 @@ public class Sales {
             loadCatalog(); // refresh stock display
         });
 
-        root.getChildren().addAll(title, totalLbl, methodLabel, methodBox,
-                paidLabel, paidField, changeLbl,
-                refLabel, refField,
-                noteLabel, noteField,
-                errorLbl, payBtn, cancelBtn);
+        outer.getChildren().addAll(header, summaryCard, payCard, errorLbl, payBtn, cancelBtn);
 
-        dialog.setScene(new Scene(root));
+        dialog.setScene(new Scene(outer));
         dialog.showAndWait();
     }
 
