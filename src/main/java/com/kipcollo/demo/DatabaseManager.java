@@ -390,6 +390,16 @@ public class DatabaseManager {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
+    private boolean reduceStock(Connection conn, int productId, int qty) throws SQLException {
+        String sql = "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, qty);
+            ps.setInt(2, productId);
+            ps.setInt(3, qty);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
     // ── Transaction Operations ────────────────────────────────────────────────
 
     public long saveTransaction(String cashier, double total, double paid,
@@ -401,7 +411,7 @@ public class DatabaseManager {
                 for (CartItem item : items) {
                     insertTransactionItem(conn, txId, item.getProduct().getId(),
                             item.getName(), item.getQuantity(), item.getUnitPrice());
-                    reduceStock(item.getProduct().getId(), item.getQuantity());
+                    reduceStock(conn, item.getProduct().getId(), item.getQuantity());
                 }
                 conn.commit();
                 return txId;
